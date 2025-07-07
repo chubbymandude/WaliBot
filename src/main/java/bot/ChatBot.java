@@ -20,7 +20,6 @@ public class ChatBot implements ChatBotInterface
 	 */
 	public ChatBot()
 	{
-		//Create the responses.txt file
 		File file = new File("responses.txt");
 		//Error-handle for creating a new file
 		try 
@@ -44,21 +43,16 @@ public class ChatBot implements ChatBotInterface
 	@Override
 	public String getAnswerTo(String prompt)
 	{
-		//Obtain connection
 		HttpURLConnection urlConnection = null;
 		urlConnection = ChatGPTUtils.setConnection(urlConnection);
 		
-		//Send the prompt
         ChatGPTUtils.sendPrompt(urlConnection, getFormalAnswer(prompt));
         
-        //Obtain the output
         String output = ChatGPTUtils.getOutput(urlConnection);
         
-        //Save to responses.txt
 		saveResponse(prompt, output);
 		numResponses++;
 		
-		//Return the output in a String format
 		return output.toString();
 	}
 
@@ -94,16 +88,15 @@ public class ChatBot implements ChatBotInterface
 			//Loop until end of file is reached
 			while(scanner.hasNextLine())
 			{
-				String currLine = scanner.nextLine(); //Go to the next line
-				String[] parts = currLine.split("\\|"); //Get from file
-				data += "Question: " + parts[0] //Update data
+				String currLine = scanner.nextLine();
+				String[] parts = currLine.split("\\|"); 
+				data += "Question: " + parts[0] 
 				+ " Answer: " + parts[1] + "       ";
 			}
 		}
 		catch(IOException e)
 		{
 			System.err.println("Some I/O error occurred while getting data...");
-			e.printStackTrace();
 		}
 		return data;
 	}
@@ -127,10 +120,9 @@ public class ChatBot implements ChatBotInterface
 			(new FileWriter("responses.txt", true));
 		)
 		{
-			//Write to the data file
 			writeToData.newLine();
 			writeToData.write(prompt + "|" + answer);
-			//Write to the responses file
+			
 			writeToResponses.write(prompt + "|" + answer);
 			writeToResponses.newLine();
 		}
@@ -138,7 +130,6 @@ public class ChatBot implements ChatBotInterface
 		{
 			System.err.println
 			("Some I/O error occurred while saving responses..");
-			e.printStackTrace();
 		}
 	}
 

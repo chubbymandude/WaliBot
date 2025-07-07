@@ -17,7 +17,7 @@ enum OpenAI
 	//Model of ChatGPT used for this application
 	MODEL("gpt-3.5-turbo");
 	
-	final String contents; //Given package access for use in this package
+	final String contents; 
 	
 	OpenAI(String contents)
 	{

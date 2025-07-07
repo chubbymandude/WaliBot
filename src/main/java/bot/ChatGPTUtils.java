@@ -41,23 +41,19 @@ public class ChatGPTUtils
 		catch(URISyntaxException e)
 		{
 			System.err.println("Error occurred creating URI...");
-			e.printStackTrace();
 		}
 		catch(MalformedURLException e)
 		{
 			System.err.println("Error occurred creating URL...");
-			e.printStackTrace();
 		}
 		catch(ProtocolException e)
 		{
 			System.err.println("Error occurring trying to set POST request...");
-			e.printStackTrace();
 		}
 		catch(IOException e)
 		{
 			System.err.println("Some Input/Output error "
 			+ "occurred while setting the connection...");
-			e.printStackTrace();
 		}
 		return urlConnection;
 	}
@@ -90,7 +86,6 @@ public class ChatGPTUtils
 		{
 			System.err.println("Some Input/Output error occurred "
 			+ "while sending the prompt to ChatGPT...");
-			e.printStackTrace();
 		}
 	}
 	
@@ -126,7 +121,6 @@ public class ChatGPTUtils
 		{
 			System.err.println("Some Input/Output error occurred "
 			+ "while obtaining response from ChatGPT...");
-			e.printStackTrace();
 		}
 		return null; //If above fails still return something
 	}
