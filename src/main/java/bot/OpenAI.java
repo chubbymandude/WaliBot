@@ -1,10 +1,7 @@
 package bot;
 
 /*
- * Constant values that I may need to use in my code
- * relating to functionality of OpenAI
- * 
- * Only for use in this package
+ * Constant values for using OpenAI
  */
 enum OpenAI 
 {
@@ -15,7 +12,9 @@ enum OpenAI
 	+ "l6B6cttM84fCUqT1OrSIJ1yziAoOB1pYcAHB9doXjtNgqrWPJT3BlbkFJpjTxLui1pFQbjyV"
 	+ "23bkC2RGMpaGQiWf6iA23s9RTYGLW3oQ4-J3nJc4AKJXYtHzjA3qHj727YA"), 
 	//Model of ChatGPT used for this application
-	MODEL("gpt-3.5-turbo");
+	MODEL("gpt-3.5-turbo"), 
+	//For use in embedding
+	EMBEDDING_LINK("https://api.openai.com/v1/embeddings");
 	
 	final String contents; 
 	

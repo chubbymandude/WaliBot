@@ -13,7 +13,9 @@ public enum Speech
 	GET_FAIL("Sorry, I was not able to get your response. Please try again."),
 	//Start-Up message for ChatBot
 	STARTUP("Welcome to the Masjid Al-Wali Chat Service. "
-	+ "Ask any question related to the Masjid here!");
+	+ "Ask any question related to the Masjid here!"), 
+	//Used when the question cannot be answered based on the dataset
+	NO_DATA("Sorry, I cannot answer this question. Please try again.");
 	
 	public final String contents; 
 	

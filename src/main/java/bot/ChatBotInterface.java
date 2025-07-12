@@ -25,11 +25,7 @@ public interface ChatBotInterface
 	 * Note that although formal, the answer should be concise, as
 	 * the answer is being sent through a phone line. 
 	 * 
-	 * This method should also make use of the prompt history by the user, 
-	 * so ChatGPT can create a somewhat more personalized response
-	 * based on how the user's prompts usually are 
-	 * 
-	 * @param data --> data obtained from the method getData()
+	 * @param prompt --> prompt to base formal answer off of
 	 */
 	public String getFormalAnswer(String prompt);
 	
@@ -37,7 +33,7 @@ public interface ChatBotInterface
 	 * Obtains data necessary for ChatGPT to make a response
 	 * based on data that is provided about Masjid Al-Wali
 	 */
-	public String getData();
+	public String getData(String prompt);
 	
 	/*
 	 * 	Method used to save contents of all prompt/response 
@@ -50,10 +46,17 @@ public interface ChatBotInterface
 	public void saveResponse(String prompt, String answer);
 	
 	/*
-	 * If the user does not want their prompt history
-	 * with ChatGPT anymore, this method can be used
-	 * to clear out responses.txt so there is nothing
-	 * in that file
+	 * Method used to obtain previous prompt-answer
+	 * history during the current ChatBot session
+	 * in order to make the ChatBot remember previous
+	 * responses
+	 */
+	public String loadResponses();
+	
+	/*
+	 * Used to clear responses.txt after the user
+	 * has ended the call with the ChatBot
+	 * (so it can be used by other users)
 	 */
 	public void clearHistory();
 }

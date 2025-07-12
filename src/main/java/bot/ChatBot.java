@@ -10,11 +10,13 @@ import java.util.Scanner;
  * See ChatBotInterface for see extra information about methods, 
  * such as parameter information and a detailed description
  * of what the method does at the high level
+ * 
+ * NOTE 7/12/2025:
+ * Currently the ChatBot isn't able to actually "remember" previous
+ * responses, will try to work on this functionality later
  */
 public class ChatBot implements ChatBotInterface
 {
-	private int numResponses; //Used to track how many prompts the user gave
-	
 	/*
 	 * Constructor
 	 */
@@ -49,41 +51,68 @@ public class ChatBot implements ChatBotInterface
         ChatGPTUtils.sendPrompt(urlConnection, getFormalAnswer(prompt));
         
         String output = ChatGPTUtils.getOutput(urlConnection);
-        
 		saveResponse(prompt, output);
-		numResponses++;
 		
-		return output.toString();
+		return output;
 	}
 
 	/*
 	 * What this method does: 
 	 * --> Makes answer to prompt more formalized
 	 * --> Makes answer to prompt concise 
-	 * --> Makes answer mimic speaking style of answers in data.txt
-	 * --> Provides data for use by ChatGPT
-	 * --> Considers responses from the current user in its answer
+	 * --> Consists prior prompt-response history
 	 */
 	@Override
 	public String getFormalAnswer(String prompt) 
 	{
-		return "Please provide a formal, short, and concise answer to the "
-		+ "following prompt. Mimic the speaking style of the answers."
-		+ " The last " + numResponses + " question-answers in the data "
-		+ "are from the current user, so consider them in your answer. "
-		+ "Prompt: " + prompt + "Data: " + getData();
+		return "Write the given answer to the prompt in a formal, "
+		+ "concise way... Prompt: " + prompt + "|Answer: " + getData(prompt);
 	}
 
 	/*
-	 * Obtains data from text file so that ChatGPT 
-	 * can parse it and provide an accurate result
+	 * Obtains data from database in order to obtain a relevant
+	 * answer to a particular prompt
 	 */
 	@Override
-	public String getData() 
+	public String getData(String prompt) 
+	{
+		return DatabaseUtils.queryDatabase(prompt);
+	}
+
+	/*
+	 * Uses a BufferedWriter to save new prompts/answers
+	 * to responses.txt to allow ChatBot to remember
+	 * previous responses.  
+	 */
+	@Override
+	public void saveResponse(String prompt, String answer) 
+	{
+		try
+		(
+			BufferedWriter writeToResponses = new BufferedWriter
+			(new FileWriter("responses.txt", true));
+		)
+		{
+			writeToResponses.write(prompt + "|" + answer);
+			writeToResponses.newLine();
+		}
+		catch(IOException e)
+		{
+			System.err.println
+			("Some I/O error occurred while saving responses..");
+		}
+	}
+
+	/*
+	 * Uses Scanner class to load in responses for use by the
+	 * ChatBot to remember previous responses
+	 */
+	@Override
+	public String loadResponses() 
 	{
 		String data = "";
 		//Use the Scanner class to append String data
-		try(Scanner scanner = new Scanner(new File("data.txt")))
+		try(Scanner scanner = new Scanner(new File("responses.txt")))
 		{		
 			//Loop until end of file is reached
 			while(scanner.hasNextLine())
@@ -96,43 +125,11 @@ public class ChatBot implements ChatBotInterface
 		}
 		catch(IOException e)
 		{
-			System.err.println("Some I/O error occurred while getting data...");
+			System.err.println("I/O error occurred while getting responses...");
 		}
 		return data;
 	}
-
-	/*
-	 * Uses a BufferedWriter to save new prompts/answers
-	 * to the ChatBot in the data.txt text file. 
-	 * 
-	 * Also saves prompts/responses to responses.txt
-	 * so the ChatBot can remember previous user prompts + responses
-	 */
-	@Override
-	public void saveResponse(String prompt, String answer) 
-	{
-		try
-		(
-			BufferedWriter writeToData = new BufferedWriter
-			(new FileWriter("data.txt", true));
-				
-			BufferedWriter writeToResponses = new BufferedWriter
-			(new FileWriter("responses.txt", true));
-		)
-		{
-			writeToData.newLine();
-			writeToData.write(prompt + "|" + answer);
-			
-			writeToResponses.write(prompt + "|" + answer);
-			writeToResponses.newLine();
-		}
-		catch(IOException e)
-		{
-			System.err.println
-			("Some I/O error occurred while saving responses..");
-		}
-	}
-
+	
 	//Clears history by calling delete method of File and clearing HashMap
 	@Override
 	public void clearHistory() 
@@ -140,5 +137,4 @@ public class ChatBot implements ChatBotInterface
 		File file = new File("responses.txt"); 
 		file.delete();
 	}
-	
 }
