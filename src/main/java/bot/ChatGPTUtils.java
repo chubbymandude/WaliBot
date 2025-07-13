@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.*;
 
+import speech.Speech;
+
 /*
  * Utility class for using ChatGPT; 
  * sets up usage of ChatGPT to make the ChatBot
@@ -122,6 +124,6 @@ public class ChatGPTUtils
 			System.err.println("Some Input/Output error occurred "
 			+ "while obtaining response from ChatGPT...");
 		}
-		return null; //If above fails still return something
+		return Speech.ERROR.contents; //If above fails still return something
 	}
 }	

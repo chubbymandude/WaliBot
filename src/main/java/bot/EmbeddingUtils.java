@@ -98,6 +98,12 @@ public class EmbeddingUtils
 	//Builds array for use in embedding
 	private static JSONArray buildArray(Response response)
 	{
+		//Check if response was null, shouldn't continue if so
+		if(response == null)
+		{
+			return null;
+		}
+		//Error-handling for building array
 		try
 		{
 			//Obtain body for JSON

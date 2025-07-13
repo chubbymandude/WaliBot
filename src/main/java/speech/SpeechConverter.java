@@ -5,9 +5,9 @@ import java.io.InputStream;
 import org.vosk.*;
 
 /*
- * This class is used to perform various functionality
- * that is required by the PhoneSystem in order
- * to for the ChatBot to work with it
+ * This class is the base class for conversion of
+ * Speech to Text, fundamental in the
+ * functionality of the voice ChatBot
  */
 public class SpeechConverter
 {
@@ -65,15 +65,4 @@ public class SpeechConverter
 			return Speech.ERROR.contents;
 		}
 	}
-
-	/*
-	 * After the ChatBot has processed the prompt, its
-	 * response can be converted to speech via
-	 * this method which converts text to speech
-	 */
-	public static String convertTextToSpeech(String text) 
-	{
-		return null;
-	}
-	
 }

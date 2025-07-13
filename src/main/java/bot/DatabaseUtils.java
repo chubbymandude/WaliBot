@@ -129,7 +129,6 @@ public class DatabaseUtils
 		}
 		catch(SQLException e)
 		{
-			e.printStackTrace();
 			System.err.println("Error saving all embeddings...");
 		}
 	}

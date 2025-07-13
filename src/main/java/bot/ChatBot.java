@@ -4,6 +4,8 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 
+import speech.Speech;
+
 /*
  * Used for simulating the ChatBot for Masjid
  * 
@@ -47,12 +49,14 @@ public class ChatBot implements ChatBotInterface
 	{
 		HttpURLConnection urlConnection = null;
 		urlConnection = ChatGPTUtils.setConnection(urlConnection);
-		
+		//Error-handling for connection
+		if(urlConnection == null)
+		{
+			return Speech.ERROR.contents;
+		}
         ChatGPTUtils.sendPrompt(urlConnection, getFormalAnswer(prompt));
-        
         String output = ChatGPTUtils.getOutput(urlConnection);
 		saveResponse(prompt, output);
-		
 		return output;
 	}
 
