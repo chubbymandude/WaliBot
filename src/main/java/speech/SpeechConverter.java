@@ -1,43 +1,52 @@
 package speech;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.vosk.*;
 
-/*
- * This class is the base class for conversion of
- * Speech to Text, fundamental in the
- * functionality of the voice ChatBot
- */
+// uses Vosk model to perform speech to text when the user's voice recording is obtained
 public class SpeechConverter
 {
-	/*
-	 * Converts speech obtained from an audio file 
-	 * to a String of text that can be used
-	 * as a prompt for the ChatBot
-	 * 
-	 * This is done using the Vosk library
-	 */
+	private static Model MODEL;
+	
+	static
+	{
+		try
+		{
+			MODEL = new Model("src/main/resources/vosk-model-small-en-us-0.15");
+		}
+		catch(IOException e)
+		{
+			System.err.println("I/O exception while creating model...");
+		}
+	}
+	
+	// Speech-To-Text via Vosk for more effective and efficient processing
 	public static String convertSpeechToText(String speech)
 	{
 		LibVosk.setLogLevel(LogLevel.DEBUG); 
 		
 		try
 		(
-			Model model = new Model
-			("src/main/resources/vosk-model-small-en-us-0.15");
-				
-			Recognizer recognizer = new Recognizer(model, 16000);
+			Recognizer recognizer = new Recognizer(MODEL, 16000);
 		)
 		{ 
-			InputStream inputStream = SpeechConverterUtils.setStream(speech);
-			//Check if the input stream initialization was successful
+			InputStream inputStream = setStream(speech);
+			
 			if(inputStream == null)
 			{
-				return Speech.ERROR.contents;
+				return null;
 			}
 			
-			//Read from stream and store in a StringBuilder
 			byte[] buffer = new byte[4096]; 
 			int numBytes;
 			StringBuilder text = new StringBuilder(); 
@@ -46,23 +55,60 @@ public class SpeechConverter
 			{
 				if(recognizer.acceptWaveForm(buffer, numBytes))
 				{
-					text.append(SpeechConverterUtils
-					.getTextFromJSON(recognizer.getResult())).append(" ");
+					text.append(getTextFromJSON(recognizer.getResult())).append(" ");
 				}
 			}
 			
-			text.append(SpeechConverterUtils.
-			getTextFromJSON(recognizer.getFinalResult()));
+			text.append(getTextFromJSON(recognizer.getFinalResult()));
 			
 			return text.toString().trim();
 		}
 		catch(IOException e)
 		{
 			System.err.println("I/O exception while creating model...");
-			/*
-			 * Print message that the Bot is not working right now
-			 */
-			return Speech.ERROR.contents;
+			return null;
+		}
+	}
+	
+	// creates stream for specified speech file
+	static AudioInputStream setStream(String speech) 
+	{
+		AudioInputStream audioInput;
+		try
+		{
+			audioInput = AudioSystem.getAudioInputStream(new File(speech));
+			
+			AudioFormat format = new AudioFormat
+			(AudioFormat.Encoding.PCM_SIGNED, 16000, 16, 1, 2, 16000, false);
+			
+			audioInput = AudioSystem.getAudioInputStream(format, audioInput);
+		}
+		catch(UnsupportedAudioFileException e)
+		{
+			System.err.println("Audio file is unsupported...");
+			return null;
+		}
+		catch(IOException e)
+		{
+			System.err.println("I/O Exception while getting stream...");
+			return null;
+		}
+		
+		return audioInput;
+	}
+	
+	// JSON string value conversion to use for speech
+	static String getTextFromJSON(String jsonText)
+	{
+		try
+		{
+			JSONObject jsonObject = new JSONObject(jsonText);
+			return jsonObject.getString("text");
+		}
+		catch(JSONException e)
+		{
+			System.err.println("Error converting JSON to text...");
+			return null;
 		}
 	}
 }

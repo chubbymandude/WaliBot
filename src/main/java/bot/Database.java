@@ -1,35 +1,82 @@
 package bot;
 
-/*
- * Database Constants and Used Queries
- */
-public enum Database 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import speech.Speech;
+
+// handles anything involving the underlying database for the Masjid ChatBot
+public class Database 
 {
-	//Link to the database
-	URL("jdbc:postgresql://localhost:5432/Masjid"), 
-	//Username + Password
-	USERNAME("abdurrafayatif"), PASSWORD("S1p2ongeBob*"),
-	//Query to be used in ChatBot
-	QUERY("SELECT question, answer\n"
-		+ "FROM dataset\n"
-		+ "ORDER BY embedding <#> ? \n"
-		+ "LIMIT 1;"),
-	//Query for saving embeddings to the database
-	SAVE_EMBEDDING("INSERT INTO dataset (question, embedding)\n"
-		+ "VALUES (?, ?)\n"
-		+ "ON CONFLICT (question) DO UPDATE\n"
-		+ "SET embedding = EXCLUDED.embedding"),
-	//Obtain the prompt in order to create and save its embedding
-	GET_PROMPT("SELECT question\n"
-			+ "FROM dataset\n"
-			+ "WHERE id = ?"),
-	//Gets row-count of table
-	GET_NUM_ROWS("SELECT COUNT(1) FROM dataset");
+	private static Connection connection;
+	private static PreparedStatement chatBotStatement;
+	private static final double ACCURACY_THRESHOLD = 1.2;
 	
-	final String contents;
-	
-	Database(String contents)
+	// initialize the connection and chatBot statement upon entering class
+	// this is in order to optimize speed of the application
+	static 
 	{
-		this.contents = contents;
+	    try 
+	    {
+	        connection = getConnection();
+	        chatBotStatement = connection.prepareStatement(Queries.QUERY.contents);
+	    } 
+	    catch(SQLException e) 
+	    {
+	        System.err.println("Error setting up connection and statement for ChatBot...");
+	    }
+	}
+	
+	// the above resources need to be closed due to be statically initialized
+	static void closeDatabaseResources()
+	{
+		try
+		{
+			connection.close();
+			chatBotStatement.close();
+		}
+		catch(SQLException e)
+		{
+			System.err.println("Error closing Database resources...");
+		}
+	}
+	
+	static Connection getConnection() throws SQLException 
+	{
+        return DriverManager.getConnection(
+        	Queries.URL.contents, Queries.USERNAME.contents, Queries.PASSWORD.contents);
+    }
+	
+	static String queryDatabase(String prompt)
+	{
+		String embedding = Embedding.getEmbedding(prompt);
+		if(embedding == null)
+		{
+			return Speech.GET_FAIL.contents;
+		}
+		try
+		{
+			chatBotStatement.setObject(1, embedding, java.sql.Types.OTHER);
+			chatBotStatement.setObject(2, embedding, java.sql.Types.OTHER);
+			ResultSet resultSet = chatBotStatement.executeQuery();
+
+			if(resultSet.next())
+			{
+				if(resultSet.getDouble("accuracy") < ACCURACY_THRESHOLD)
+				{
+					return Speech.NO_DATA.contents;
+				}
+				return resultSet.getString("answer");
+			}
+		}
+		catch(SQLException e)
+		{
+			System.err.println("Error obtaining from database...");
+			return Speech.GET_FAIL.contents; 
+		}
+		return Speech.NO_DATA.contents;
 	}
 }

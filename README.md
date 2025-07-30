@@ -15,3 +15,9 @@ Considering Twilio for phone call functionality.
 Need to use Speech-To-Text & Text-To-Speech functionality in order to properly make the application.
 
 Need to run a server with SpringBoot (have already converted project to a Maven project).
+
+UPDATE 7/30/2025
+
+Finished integrating Twilio service for localhost and performing optimizations.
+
+Next steps are to integrate to a proper server and buy the actual Twilio service so the phone can be used by clients. 

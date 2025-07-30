@@ -3,97 +3,108 @@ package server;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
+
+import org.springframework.stereotype.Service;
+
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 
 import com.twilio.twiml.VoiceResponse;
 import com.twilio.twiml.voice.Say;
 import com.twilio.twiml.voice.Hangup;
 import com.twilio.twiml.voice.Record;
-import com.twilio.twiml.voice.Redirect;
 
 import speech.*;
 import bot.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-/*
- * Following class provides various utility methods
- * for the functionality of the application
- */
-public class PhoneSystem 
+// utility functions for serving the phone line
+@Service
+public class PhoneSystem implements AutoCloseable
 {
-	private int numAnswers; //Amount of questions answered; doesn't exceed 10
-	private ChatBot bot; //Used for obtaining answers to questions
+	private static final int MAX_ANSWERS = 5;
+	private int numAnswers; 
+	ChatBot bot; 
 	
-	//Setup PhoneSystem 
 	public PhoneSystem()
 	{
 		numAnswers = 0;
 		bot = new ChatBot();
 	}
 	
-	//Sends the startup message when the call starts
-	String startupMessage(spark.Request request, spark.Response response)
+	// sends the startup message (runs before the user states their first question)
+	public String startupMessage(HttpServletRequest request, HttpServletResponse response)
 	{
-		response.type("application/xml");
+		response.setContentType("application/xml");
 		return new VoiceResponse.Builder()
 			.say(new Say.Builder(Speech.STARTUP.contents).build())
-			.record(new Record.Builder().action("/process").build())
+			.record(buildRecord())
 			.build()
 			.toXml();
 	}
 	
-	//Loop the conversation 
-	String messageLoop(spark.Request request, spark.Response response)
+	// loop the conversation 
+	public String messageLoop(HttpServletRequest request, HttpServletResponse response)
 	{
-		response.type("application/xml");
-		//Check if user hanged up the call
-		String recUrl = request.queryParams("Recording");
-		String recDuration = request.queryParams("RecordingDuration");
-		if(recUrl == null || recUrl.isEmpty() 
-		|| recDuration == null || recDuration.equals("0"))
+		response.setContentType("application/xml");
+		// check if user hanged up the call or if the recording gave an error
+		String recUrl = request.getParameter("RecordingUrl");
+		String recDuration = request.getParameter("RecordingDuration");
+		if(recUrl == null || recUrl.isEmpty() || recDuration == null || recDuration.equals("0"))
 		{
+			close();
 			return new VoiceResponse.Builder()
 				.say(new Say.Builder(Speech.HANGUP.contents).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();
-		}
-		//Get TEXT from recording
-		String prompt = SpeechConverter.convertSpeechToText
-		(getRecording(recUrl));
-		//Obtain VOICE response
+		} 
+		String recording = downloadRecording(recUrl); 
+		String prompt = SpeechConverter.convertSpeechToText(recording);
 		VoiceResponse.Builder voiceResponse = new VoiceResponse.Builder();
-		//Check if text says "quit"
-		if(prompt.toLowerCase().contains(Phone.QUIT.contents))
+		if(numAnswers >= MAX_ANSWERS) 
 		{
-			voiceResponse
-				.say(new Say.Builder(Speech.END.contents).build())
-				.hangup(new Hangup.Builder().build());
-		}
-		else if(numAnswers > 10) //Answer limit exceeded
-		{
+			close();
 			voiceResponse
 				.say(new Say.Builder(Speech.EXCEED.contents).build())
 				.hangup(new Hangup.Builder().build());
 		}
-		else //Get answer and sent it through voice
+		else 
 		{
-			voiceResponse
-				.say(new Say.Builder(bot.getAnswerTo(prompt)).build())
-				.redirect(new Redirect.Builder("/voice").build());
+			voiceResponse 
+					.play(new com.twilio.twiml.voice.Play.Builder
+					("https://api.twilio.com/cowbell.mp3") 
+			        .loop(1).build())
+				.say(new Say.Builder(bot.getAnswerTo(prompt).replaceAll("\\n", "")).build())
+				.record(buildRecord());
 		}
 		numAnswers++;
-		return voiceResponse.build().toXml();
+		return voiceResponse.build().toXml().replaceAll("\\n", "");
+	}
+	
+	private Record buildRecord()
+	{
+		return new Record.Builder()
+				.action("/process")
+			    .method(com.twilio.http.HttpMethod.POST)
+			    .timeout(10)
+			    .maxLength(30)
+			    .playBeep(true)
+			    .build();
 	}
 
-	//Downloads recording from speech spoken by user
-	private String getRecording(String recURL)
+	private String downloadRecording(String recURL)
 	{
-		URL url;
-		//Create URL via URI class
+		HttpURLConnection connection;
+		
 		try
 		{
-			url = new URI(recURL + ".wav").toURL();
+			connection = (HttpURLConnection) new URI(recURL).toURL().openConnection();
+	        String auth = Phone.ACCOUNT_SID.contents + ":" + Phone.AUTH_TOKEN.contents;
+	        String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+	        connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
+	        connection.connect();
 		}
 		catch(URISyntaxException e)
 		{
@@ -105,14 +116,21 @@ public class PhoneSystem
 			System.err.println("Recording URL was malformed...");
 			return null;
 		}
-		//Use InputStream to obtain recording
+		catch(IOException e)
+		{
+			System.err.println("Error trying to authenticate...");
+			return null;
+		}
+		
+		File outputFile = new File("recordings", Phone.PATH.contents);
+		outputFile.getParentFile().mkdirs();
+		
 		try
 		(
-			InputStream input = url.openStream();
-	        OutputStream output = new FileOutputStream(Phone.PATH.contents);
+			InputStream input = connection.getInputStream();
+	        OutputStream output = new FileOutputStream(outputFile);
 		)
 		{
-			//Obtain file via buffering and writing from stream
 			byte[] buffer = new byte[4096];
 			int numBytes;
 			while((numBytes = input.read(buffer)) != -1) 
@@ -122,9 +140,19 @@ public class PhoneSystem
 		}
 		catch(IOException e)
 		{
-			System.err.println("I/O Exception created streams...");
+			System.err.println("I/O Exception creating streams...");
+			e.printStackTrace();
 			return null;
 		}
-		return Phone.PATH.contents;
+		return outputFile.getAbsolutePath();
+	}
+
+	// for any cleanup actions after phone hangup
+	@Override
+	public void close()
+	{
+		bot.clearHistory();
+		File recording = new File(Phone.PATH.contents);
+		recording.delete();
 	}
 }

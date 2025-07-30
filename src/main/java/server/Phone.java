@@ -1,11 +1,12 @@
 package server;
 
-//Constants related to the phone system
 public enum Phone 
 {
-	QUIT("quit"), PATH("question.wav");
+	QUIT("quit"), PATH("recordings/question.wav"), 
+	ACCOUNT_SID(System.getenv("ACCOUNT_SID")), 
+	AUTH_TOKEN(System.getenv("AUTH_TOKEN"));
 	
-	final String contents;
+	public final String contents;
 	
 	Phone(String contents)
 	{
