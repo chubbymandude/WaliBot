@@ -6,10 +6,15 @@ public enum Phone
 	ACCOUNT_SID(System.getenv("ACCOUNT_SID")), 
 	AUTH_TOKEN(System.getenv("AUTH_TOKEN"));
 	
-	public final String contents;
+	private final String contents;
 	
 	Phone(String contents)
 	{
 		this.contents = contents;
+	}
+	
+	String get()
+	{
+		return this.contents;
 	}
 }

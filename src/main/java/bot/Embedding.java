@@ -18,20 +18,13 @@ public class Embedding
 	// gets embedding for use in query
 	static String getEmbedding(String prompt)
 	{
-		OkHttpClient client = new OkHttpClient();
-		
 		JSONObject body = new JSONObject();
         body.put("input", prompt);
-        body.put("model", "text-embedding-3-small");
+        body.put("model", OpenAI.EMBEDDING_MODEL.get());
         
-        JSONArray array = buildArray(buildResponse(client, buildRequest(body)));
-        
-        if(array == null)
-        {
-        	return null;
-        }
-        
+        JSONArray array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body)));
         List<Float> embeddingList = new ArrayList<>();
+        
         for(int index = 0; index < array.length(); index++) 
         {
             embeddingList.add(array.getFloat(index));
@@ -63,8 +56,8 @@ public class Embedding
 	private static Request buildRequest(JSONObject body)
 	{
 		return new Request.Builder()
-			.url(OpenAI.EMBEDDING_LINK.contents)
-			.addHeader("Authorization", "Bearer " + OpenAI.KEY.contents)
+			.url(OpenAI.EMBEDDING_LINK.get())
+			.addHeader("Authorization", "Bearer " + OpenAI.KEY.get())
 			.addHeader("Content-Type", "application/json")
 			.post(getRequestBody(body))
 			.build();

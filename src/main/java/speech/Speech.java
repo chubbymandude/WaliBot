@@ -9,14 +9,17 @@ public enum Speech
 	STARTUP("Assalam-mu-alaikum! Welcome to the Masjid Al-Wali Chat Service. "
 		+ "Ask any question related to the Masjid here!"
 		+ "You are allowed at most 5 questions per call."),
-	END("Thank you for using the Masjid Al-Wali Chat Service. Allah-hafiz."),
-	EXCEED("Sorry, I cannot answer any more questions. Allah-hafiz."),
-	HANGUP("Sorry, I was not able to get your response. Allah-hafiz.");
+	END("Thank you for using the Masjid Al-Wali Chat Service. Allah-hafiz.");
 	
-	public final String contents; 
+	private final String contents; 
 	
 	Speech(String contents)
 	{
 		this.contents = contents;
+	}
+	
+	public String get()
+	{
+		return this.contents;
 	}
 }

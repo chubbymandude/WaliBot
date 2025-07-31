@@ -13,15 +13,20 @@ public enum Queries
 		+ "ON CONFLICT (question) DO UPDATE\n"
 		+ "SET embedding = EXCLUDED.embedding"),
 	GET_PROMPT("SELECT question\n"
-			+ "FROM dataset\n"
-			+ "WHERE id = ?"),
+		+ "FROM dataset\n"
+		+ "WHERE id = ?"),
 	GET_NUM_ROWS("SELECT COUNT(1) FROM dataset"),
 	EMBEDDING_LINK("https://api.openai.com/v1/embeddings");
 	
-    final String contents;
+    private final String contents;
 	
 	Queries(String contents)
 	{
 		this.contents = contents;
+	}
+	
+	String get()
+	{
+		return this.contents;
 	}
 }

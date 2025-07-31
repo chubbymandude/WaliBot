@@ -47,6 +47,7 @@ public class SpeechConverter
 				return null;
 			}
 			
+			// write bytes from input stream into textual form
 			byte[] buffer = new byte[4096]; 
 			int numBytes;
 			StringBuilder text = new StringBuilder(); 

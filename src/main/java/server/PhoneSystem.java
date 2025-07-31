@@ -25,64 +25,73 @@ public class PhoneSystem implements AutoCloseable
 {
 	private static final int MAX_ANSWERS = 5;
 	private int numAnswers; 
-	ChatBot bot; 
+	private ChatBot bot; 
 	
 	public PhoneSystem()
 	{
-		numAnswers = 0;
 		bot = new ChatBot();
+		numAnswers = 0;
 	}
 	
-	// sends the startup message (runs before the user states their first question)
+	// should run before user sends first prompt
 	public String startupMessage(HttpServletRequest request, HttpServletResponse response)
 	{
 		response.setContentType("application/xml");
 		return new VoiceResponse.Builder()
-			.say(new Say.Builder(Speech.STARTUP.contents).build())
+			.say(new Say.Builder(Speech.STARTUP.get()).build())
 			.record(buildRecord())
 			.build()
 			.toXml();
 	}
 	
-	// loop the conversation 
 	public String messageLoop(HttpServletRequest request, HttpServletResponse response)
 	{
 		response.setContentType("application/xml");
-		// check if user hanged up the call or if the recording gave an error
 		String recUrl = request.getParameter("RecordingUrl");
 		String recDuration = request.getParameter("RecordingDuration");
-		if(recUrl == null || recUrl.isEmpty() || recDuration == null || recDuration.equals("0"))
+		
+		// if the user hanged up the application should still clean up resources
+		if(hangedUp(recUrl, recDuration))
 		{
 			close();
 			return new VoiceResponse.Builder()
-				.say(new Say.Builder(Speech.HANGUP.contents).build())
+				.say(new Say.Builder(Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();
 		} 
+		
+		VoiceResponse.Builder voiceResponse = new VoiceResponse.Builder()
+			.play(new com.twilio.twiml.voice.Play.Builder
+			("https://api.twilio.com/cowbell.mp3").loop(1).build());
 		String recording = downloadRecording(recUrl); 
 		String prompt = SpeechConverter.convertSpeechToText(recording);
-		VoiceResponse.Builder voiceResponse = new VoiceResponse.Builder();
-		if(numAnswers >= MAX_ANSWERS) 
+		String answer = bot.getAnswerTo(prompt);
+		numAnswers++;
+		
+		if(numAnswers >= MAX_ANSWERS)
 		{
 			close();
-			voiceResponse
-				.say(new Say.Builder(Speech.EXCEED.contents).build())
+			voiceResponse 
+				.say(new Say.Builder(answer + " . " + Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build());
 		}
-		else 
+		else
 		{
 			voiceResponse 
-					.play(new com.twilio.twiml.voice.Play.Builder
-					("https://api.twilio.com/cowbell.mp3") 
-			        .loop(1).build())
-				.say(new Say.Builder(bot.getAnswerTo(prompt).replaceAll("\\n", "")).build())
+				.say(new Say.Builder(answer).build())
 				.record(buildRecord());
 		}
-		numAnswers++;
+		// due to the possibly of \n in voice response must remove any instances of it
 		return voiceResponse.build().toXml().replaceAll("\\n", "");
 	}
 	
+	private boolean hangedUp(String recUrl, String recDur)
+	{
+		return recUrl == null || recUrl.isEmpty() || recDur == null || recDur.equals("0");
+	}
+	
+	// allows the ChatBot to be able to take in multiple prompts
 	private Record buildRecord()
 	{
 		return new Record.Builder()
@@ -94,14 +103,15 @@ public class PhoneSystem implements AutoCloseable
 			    .build();
 	}
 
+	// places recording in project directory so it can be used by Vosk model
 	private String downloadRecording(String recURL)
 	{
 		HttpURLConnection connection;
-		
+		// set up HTTP connection with auccount SID and authentication token
 		try
 		{
 			connection = (HttpURLConnection) new URI(recURL).toURL().openConnection();
-	        String auth = Phone.ACCOUNT_SID.contents + ":" + Phone.AUTH_TOKEN.contents;
+	        String auth = Phone.ACCOUNT_SID.get() + ":" + Phone.AUTH_TOKEN.get();
 	        String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
 	        connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
 	        connection.connect();
@@ -122,9 +132,11 @@ public class PhoneSystem implements AutoCloseable
 			return null;
 		}
 		
-		File outputFile = new File("recordings", Phone.PATH.contents);
+		// create output file for recording in current directory so it can easily be obtained
+		File outputFile = new File("recordings", Phone.PATH.get());
 		outputFile.getParentFile().mkdirs();
 		
+		// write the recording into the file so it can be converted to text later
 		try
 		(
 			InputStream input = connection.getInputStream();
@@ -147,12 +159,12 @@ public class PhoneSystem implements AutoCloseable
 		return outputFile.getAbsolutePath();
 	}
 
-	// for any cleanup actions after phone hangup
+	// cleanup actions after phone hangup
 	@Override
 	public void close()
 	{
 		bot.clearHistory();
-		File recording = new File(Phone.PATH.contents);
+		File recording = new File(Phone.PATH.get());
 		recording.delete();
 	}
 }

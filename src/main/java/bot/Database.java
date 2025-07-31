@@ -22,7 +22,7 @@ public class Database
 	    try 
 	    {
 	        connection = getConnection();
-	        chatBotStatement = connection.prepareStatement(Queries.QUERY.contents);
+	        chatBotStatement = connection.prepareStatement(Queries.QUERY.get());
 	    } 
 	    catch(SQLException e) 
 	    {
@@ -30,7 +30,7 @@ public class Database
 	    }
 	}
 	
-	// the above resources need to be closed due to be statically initialized
+	// the above resources need to be closed due to being statically initialized
 	static void closeDatabaseResources()
 	{
 		try
@@ -47,7 +47,7 @@ public class Database
 	static Connection getConnection() throws SQLException 
 	{
         return DriverManager.getConnection(
-        	Queries.URL.contents, Queries.USERNAME.contents, Queries.PASSWORD.contents);
+        	Queries.URL.get(), Queries.USERNAME.get(), Queries.PASSWORD.get());
     }
 	
 	static String queryDatabase(String prompt)
@@ -55,7 +55,7 @@ public class Database
 		String embedding = Embedding.getEmbedding(prompt);
 		if(embedding == null)
 		{
-			return Speech.GET_FAIL.contents;
+			return Speech.GET_FAIL.get();
 		}
 		try
 		{
@@ -65,9 +65,10 @@ public class Database
 
 			if(resultSet.next())
 			{
+				// indicates to user that there is no data for what the user prompted for
 				if(resultSet.getDouble("accuracy") < ACCURACY_THRESHOLD)
 				{
-					return Speech.NO_DATA.contents;
+					return Speech.NO_DATA.get();
 				}
 				return resultSet.getString("answer");
 			}
@@ -75,8 +76,8 @@ public class Database
 		catch(SQLException e)
 		{
 			System.err.println("Error obtaining from database...");
-			return Speech.GET_FAIL.contents; 
+			return Speech.GET_FAIL.get(); 
 		}
-		return Speech.NO_DATA.contents;
+		return Speech.NO_DATA.get();
 	}
 }

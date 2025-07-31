@@ -11,7 +11,7 @@ public class SaveEmbeddings
 	private static void saveEmbedding(String prompt) throws SQLException
 	{
 		Connection connection = Database.getConnection();
-		PreparedStatement statement = connection.prepareStatement(Queries.SAVE_EMBEDDING.contents);
+		PreparedStatement statement = connection.prepareStatement(Queries.SAVE_EMBEDDING.get());
 
 		statement.setString(1, prompt);
 		statement.setObject(2, Embedding.getEmbedding(prompt), java.sql.Types.OTHER);
@@ -21,7 +21,7 @@ public class SaveEmbeddings
 	private static int numColumns() throws SQLException
 	{
 		Connection connection = Database.getConnection();
-		PreparedStatement statement = connection.prepareStatement(Queries.GET_NUM_ROWS.contents);
+		PreparedStatement statement = connection.prepareStatement(Queries.GET_NUM_ROWS.get());
 
 		ResultSet resultSet = statement.executeQuery();
 		if(resultSet.next())
@@ -35,7 +35,7 @@ public class SaveEmbeddings
 	private static String getPrompt(int id) throws SQLException
 	{
 		Connection connection = Database.getConnection();
-		PreparedStatement statement = connection.prepareStatement(Queries.GET_PROMPT.contents);
+		PreparedStatement statement = connection.prepareStatement(Queries.GET_PROMPT.get());
 
 		statement.setInt(1, id);
 		ResultSet resultSet = statement.executeQuery();
