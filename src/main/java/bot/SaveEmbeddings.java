@@ -18,6 +18,7 @@ public class SaveEmbeddings
 		statement.executeUpdate();
 	}
 	
+	// need to obtain number
 	private static int numColumns() throws SQLException
 	{
 		Connection connection = Database.getConnection();

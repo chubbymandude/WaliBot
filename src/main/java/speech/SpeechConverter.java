@@ -35,10 +35,7 @@ public class SpeechConverter
 	{
 		LibVosk.setLogLevel(LogLevel.DEBUG); 
 		
-		try
-		(
-			Recognizer recognizer = new Recognizer(MODEL, 16000);
-		)
+		try(Recognizer recognizer = new Recognizer(MODEL, 16000))
 		{ 
 			InputStream inputStream = setStream(speech);
 			
@@ -66,32 +63,28 @@ public class SpeechConverter
 		}
 		catch(IOException e)
 		{
-			System.err.println("I/O exception while creating model...");
+			System.err.println("I/O exception converting speech to text...");
 			return null;
 		}
 	}
 	
 	// creates stream for specified speech file
-	static AudioInputStream setStream(String speech) 
+	private static AudioInputStream setStream(String speech) 
 	{
 		AudioInputStream audioInput;
+		
 		try
 		{
 			audioInput = AudioSystem.getAudioInputStream(new File(speech));
 			
-			AudioFormat format = new AudioFormat
+			AudioFormat format = new AudioFormat // format is set specifically for Vosk model
 			(AudioFormat.Encoding.PCM_SIGNED, 16000, 16, 1, 2, 16000, false);
 			
 			audioInput = AudioSystem.getAudioInputStream(format, audioInput);
 		}
-		catch(UnsupportedAudioFileException e)
+		catch(UnsupportedAudioFileException | IOException e)
 		{
-			System.err.println("Audio file is unsupported...");
-			return null;
-		}
-		catch(IOException e)
-		{
-			System.err.println("I/O Exception while getting stream...");
+			System.err.println("Audio file is unsupported or miscellaneous I/O exception...");
 			return null;
 		}
 		
@@ -99,7 +92,7 @@ public class SpeechConverter
 	}
 	
 	// JSON string value conversion to use for speech
-	static String getTextFromJSON(String jsonText)
+	private static String getTextFromJSON(String jsonText)
 	{
 		try
 		{

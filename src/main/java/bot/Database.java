@@ -11,45 +11,16 @@ import speech.Speech;
 // handles anything involving the underlying database for the Masjid ChatBot
 public class Database 
 {
-	private static Connection connection;
-	private static PreparedStatement chatBotStatement;
-	private static final double ACCURACY_THRESHOLD = 1.2;
+	private static final double ACCURACY_THRESHOLD = 1.3;
 	
-	// initialize the connection and chatBot statement upon entering class
-	// this is in order to optimize speed of the application
-	static 
-	{
-	    try 
-	    {
-	        connection = getConnection();
-	        chatBotStatement = connection.prepareStatement(Queries.QUERY.get());
-	    } 
-	    catch(SQLException e) 
-	    {
-	        System.err.println("Error setting up connection and statement for ChatBot...");
-	    }
-	}
-	
-	// the above resources need to be closed due to being statically initialized
-	static void closeDatabaseResources()
-	{
-		try
-		{
-			connection.close();
-			chatBotStatement.close();
-		}
-		catch(SQLException e)
-		{
-			System.err.println("Error closing Database resources...");
-		}
-	}
-	
+	// general purpose method which is used whenever I need to form a connection with database
 	static Connection getConnection() throws SQLException 
 	{
         return DriverManager.getConnection(
         	Queries.URL.get(), Queries.USERNAME.get(), Queries.PASSWORD.get());
     }
 	
+	// this method is specifically used by the ChatBot to obtain a relevant answer from database
 	static String queryDatabase(String prompt)
 	{
 		String embedding = Embedding.getEmbedding(prompt);
@@ -58,10 +29,15 @@ public class Database
 			return Speech.GET_FAIL.get();
 		}
 		try
+		(
+			Connection connection = getConnection();
+		    PreparedStatement botStatement = connection.prepareStatement(Queries.GET_ANSWER.get());
+		)
 		{
-			chatBotStatement.setObject(1, embedding, java.sql.Types.OTHER);
-			chatBotStatement.setObject(2, embedding, java.sql.Types.OTHER);
-			ResultSet resultSet = chatBotStatement.executeQuery();
+			botStatement.setObject(1, embedding, java.sql.Types.OTHER);
+			botStatement.setObject(2, embedding, java.sql.Types.OTHER);
+			//chatBotStatement.setObject(2, embedding, java.sql.Types.OTHER);
+			ResultSet resultSet = botStatement.executeQuery();
 
 			if(resultSet.next())
 			{
@@ -76,6 +52,7 @@ public class Database
 		catch(SQLException e)
 		{
 			System.err.println("Error obtaining from database...");
+			e.printStackTrace();
 			return Speech.GET_FAIL.get(); 
 		}
 		return Speech.NO_DATA.get();

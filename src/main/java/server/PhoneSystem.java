@@ -3,11 +3,13 @@ package server;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-
-import org.springframework.stereotype.Service;
-
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Base64;
+import org.springframework.stereotype.Service;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.twilio.twiml.VoiceResponse;
 import com.twilio.twiml.voice.Say;
@@ -16,21 +18,32 @@ import com.twilio.twiml.voice.Record;
 
 import speech.*;
 import bot.*;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 // utility functions for serving the phone line
 @Service
-public class PhoneSystem implements AutoCloseable
+public class PhoneSystem
 {
 	private static final int MAX_ANSWERS = 5;
-	private int numAnswers; 
-	private ChatBot bot; 
+	
+	// holds a ChatBot instance to handle multiple incoming calls
+	private class Conversation
+	{
+		ChatBot bot;
+		int numAnswers;
+		
+		Conversation()
+		{
+			bot = new ChatBot();
+			numAnswers = 0;
+		}
+	}	
+
+	// used to handle multiple call requests at the same time
+	private final ConcurrentHashMap<String, Conversation> conversations;
 	
 	public PhoneSystem()
 	{
-		bot = new ChatBot();
-		numAnswers = 0;
+		conversations = new ConcurrentHashMap<String, Conversation>();
 	}
 	
 	// should run before user sends first prompt
@@ -46,6 +59,11 @@ public class PhoneSystem implements AutoCloseable
 	
 	public String messageLoop(HttpServletRequest request, HttpServletResponse response)
 	{
+		// setup ChatBot during first conversation
+		String sid = request.getParameter("CallSid");
+		conversations.putIfAbsent(sid, new Conversation());
+		
+		// obtain recording from twilio API
 		response.setContentType("application/xml");
 		String recUrl = request.getParameter("RecordingUrl");
 		String recDuration = request.getParameter("RecordingDuration");
@@ -53,7 +71,7 @@ public class PhoneSystem implements AutoCloseable
 		// if the user hanged up the application should still clean up resources
 		if(hangedUp(recUrl, recDuration))
 		{
-			close();
+			cleanup(sid);
 			return new VoiceResponse.Builder()
 				.say(new Say.Builder(Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build())
@@ -61,31 +79,37 @@ public class PhoneSystem implements AutoCloseable
 				.toXml();
 		} 
 		
-		VoiceResponse.Builder voiceResponse = new VoiceResponse.Builder()
-			.play(new com.twilio.twiml.voice.Play.Builder
-			("https://api.twilio.com/cowbell.mp3").loop(1).build());
+		// algorithm for getting voice response and obtaining a relevant answer out of it
 		String recording = downloadRecording(recUrl); 
 		String prompt = SpeechConverter.convertSpeechToText(recording);
-		String answer = bot.getAnswerTo(prompt);
-		numAnswers++;
+		String answer = conversations.get(sid).bot.getAnswerTo(prompt);
 		
-		if(numAnswers >= MAX_ANSWERS)
+		// if ChatBot wasn't able to get a response it doesn't count toward the # of answers
+		if(answer != Speech.NO_DATA.get()) 
 		{
-			close();
-			voiceResponse 
+			conversations.get(sid).numAnswers++;
+		}
+		// determine if answer limit has been exceeded and build voice response accordingly
+		if(conversations.get(sid).numAnswers >= MAX_ANSWERS)
+		{
+			cleanup(sid);
+			return new VoiceResponse.Builder()
 				.say(new Say.Builder(answer + " . " + Speech.END.get()).build())
-				.hangup(new Hangup.Builder().build());
+				.hangup(new Hangup.Builder().build())
+				.build()
+				.toXml();
 		}
 		else
 		{
-			voiceResponse 
+			return new VoiceResponse.Builder()	
 				.say(new Say.Builder(answer).build())
-				.record(buildRecord());
+				.record(buildRecord())
+				.build()
+				.toXml();
 		}
-		// due to the possibly of \n in voice response must remove any instances of it
-		return voiceResponse.build().toXml().replaceAll("\\n", "");
 	}
 	
+	// utility method for determing if the user prematurely exited the call
 	private boolean hangedUp(String recUrl, String recDur)
 	{
 		return recUrl == null || recUrl.isEmpty() || recDur == null || recDur.equals("0");
@@ -97,8 +121,8 @@ public class PhoneSystem implements AutoCloseable
 		return new Record.Builder()
 				.action("/process")
 			    .method(com.twilio.http.HttpMethod.POST)
-			    .timeout(10)
-			    .maxLength(30)
+			    .timeout(2)
+			    .maxLength(20)
 			    .playBeep(true)
 			    .build();
 	}
@@ -112,23 +136,13 @@ public class PhoneSystem implements AutoCloseable
 		{
 			connection = (HttpURLConnection) new URI(recURL).toURL().openConnection();
 	        String auth = Phone.ACCOUNT_SID.get() + ":" + Phone.AUTH_TOKEN.get();
-	        String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+	        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
 	        connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
 	        connection.connect();
 		}
-		catch(URISyntaxException e)
+		catch(URISyntaxException | IOException e)
 		{
-			System.err.println("Error occurred creating URI...");
-			return null;
-		}
-		catch(MalformedURLException e)
-		{
-			System.err.println("Recording URL was malformed...");
-			return null;
-		}
-		catch(IOException e)
-		{
-			System.err.println("Error trying to authenticate...");
+			System.err.println("Could not obtain recording URL or a miscellaneous I/O error...");
 			return null;
 		}
 		
@@ -159,11 +173,12 @@ public class PhoneSystem implements AutoCloseable
 		return outputFile.getAbsolutePath();
 	}
 
-	// cleanup actions after phone hangup
-	@Override
-	public void close()
+	// cleanup actions for phone system
+	public void cleanup(String sid)
 	{
-		bot.clearHistory();
+		conversations.get(sid).bot.clearHistory();
+		conversations.remove(sid);
+		
 		File recording = new File(Phone.PATH.get());
 		recording.delete();
 	}

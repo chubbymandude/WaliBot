@@ -4,7 +4,7 @@ public enum Queries
 {
 	URL(System.getenv("DB_URL")), 
 	USERNAME(System.getenv("DB_USERNAME")), PASSWORD(System.getenv("DB_PASSWORD")),
-	QUERY("SELECT question, answer, 1 - (embedding <#> ?) AS accuracy\n"
+	GET_ANSWER("SELECT question, answer, 1 - (embedding <#> ?) AS accuracy\n"
 		+ "FROM dataset\n"
 		+ "ORDER BY embedding <#> ? \n"
 		+ "LIMIT 1;"),
@@ -15,8 +15,7 @@ public enum Queries
 	GET_PROMPT("SELECT question\n"
 		+ "FROM dataset\n"
 		+ "WHERE id = ?"),
-	GET_NUM_ROWS("SELECT COUNT(1) FROM dataset"),
-	EMBEDDING_LINK("https://api.openai.com/v1/embeddings");
+	GET_NUM_ROWS("SELECT COUNT(1) FROM dataset");
 	
     private final String contents;
 	
@@ -27,6 +26,6 @@ public enum Queries
 	
 	String get()
 	{
-		return this.contents;
+		return contents;
 	}
 }

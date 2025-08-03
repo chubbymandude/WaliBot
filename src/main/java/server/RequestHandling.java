@@ -16,7 +16,6 @@ import speech.Speech;
 public class RequestHandling 
 {
 	private PhoneSystem phone;
-	private static final boolean WORKING = true; // set to false if in need of fixing
 	
 	@Autowired
 	public RequestHandling(PhoneSystem phone)
@@ -33,13 +32,13 @@ public class RequestHandling
 	@RequestMapping(value = "/process", method = RequestMethod.POST)
 	public String handleLoop(HttpServletRequest request, HttpServletResponse response)
 	{
-		if(WORKING)
+		try
 		{
 			return phone.messageLoop(request, response);
 		}
-		else // if the program is not working for any reason immediately hang up
+		catch(Exception e) // if the program is not working for any reason immediately hang up
 		{
-			phone.close();
+			phone.cleanup(request.getParameter("CallSid"));
 			return new VoiceResponse.Builder()
 				.say(new Say.Builder(Speech.ERROR.get()).build())
 				.hangup(new Hangup.Builder().build())

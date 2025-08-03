@@ -14,6 +14,6 @@ enum OpenAI
 	
 	String get()
 	{
-		return this.contents;
+		return contents;
 	}
 }	

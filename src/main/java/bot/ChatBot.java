@@ -24,7 +24,7 @@ public class ChatBot
 	{
 		if(!prompts.isEmpty())
 		{
-			String context = prompts.peek() + ". " +  prompt;
+			String context = prompts.peek() + " . " +  prompt;
 			return Database.queryDatabase(context);
 		}
 		return Database.queryDatabase(prompt) ;
@@ -34,6 +34,5 @@ public class ChatBot
 	public void clearHistory() 
 	{
 		prompts.clear();
-		Database.closeDatabaseResources();
 	}
 }

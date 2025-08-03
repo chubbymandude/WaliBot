@@ -21,8 +21,19 @@ public class Embedding
 		JSONObject body = new JSONObject();
         body.put("input", prompt);
         body.put("model", OpenAI.EMBEDDING_MODEL.get());
+        JSONArray array;
         
-        JSONArray array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body)));
+        // utilize a variety of utility methods to create a JSON array to convert 
+        try
+        {
+        	array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body)));
+        }
+        catch(IOException e)
+        {
+        	System.err.println("I/O exception obtaining embedding...");
+        	return null;
+        }
+        
         List<Float> embeddingList = new ArrayList<>();
         
         for(int index = 0; index < array.length(); index++) 
@@ -48,6 +59,10 @@ public class Embedding
 		return data.toString() + "]";
 	}
 	
+	///////////////////////////////////////////////////////////////////////////
+	// following set of methods are utility methods for creating JSON array //
+	/////////////////////////////////////////////////////////////////////////
+	
 	private static RequestBody getRequestBody(JSONObject body)
 	{
 		return RequestBody.create(body.toString(), MediaType.parse("application/json"));
@@ -63,35 +78,19 @@ public class Embedding
 			.build();
 	}
 	
-	private static Response buildResponse(OkHttpClient client, Request request)
+	private static Response buildResponse(OkHttpClient client, Request request) throws IOException
 	{
-		try
-		{
-			return client.newCall(request).execute();
-		}
-		catch(IOException e)
-		{
-			System.err.println("I/O error occurred while getting response...");
-			return null;
-		}
+		return client.newCall(request).execute();
 	}
 	
-	private static JSONArray buildArray(Response response)
+	private static JSONArray buildArray(Response response) throws IOException
 	{
 		if(response == null)
 		{
 			return null;
 		}
-		try
-		{
-			JSONObject body = new JSONObject(response.body().string());
-			return body.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
-		}
-		catch(IOException e)
-		{
-			System.err.println("I/O error occurred while building array...");
-			return null;
-		}
+		JSONObject body = new JSONObject(response.body().string());
+		return body.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
 	}
 	
 }
