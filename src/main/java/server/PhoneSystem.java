@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import com.twilio.http.HttpMethod;
 import com.twilio.twiml.VoiceResponse;
 import com.twilio.twiml.voice.Say;
 import com.twilio.twiml.voice.Hangup;
@@ -72,7 +73,7 @@ public class PhoneSystem
 		if(hangedUp(recUrl, recDuration))
 		{
 			cleanup(sid);
-			return new VoiceResponse.Builder()
+			return new VoiceResponse.Builder()	
 				.say(new Say.Builder(Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
@@ -93,16 +94,19 @@ public class PhoneSystem
 		if(conversations.get(sid).numAnswers >= MAX_ANSWERS)
 		{
 			cleanup(sid);
-			return new VoiceResponse.Builder()
-				.say(new Say.Builder(answer + " . " + Speech.END.get()).build())
+			return new VoiceResponse.Builder()	
+				.say(new Say.Builder(answer + Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();
 		}
 		else
 		{
+			// indicate to the user how many valid questions they can get answered
+			int numLeft = MAX_ANSWERS - conversations.get(sid).numAnswers;
+			// include both the answer and the indication of # of messages left in voice response
 			return new VoiceResponse.Builder()	
-				.say(new Say.Builder(answer).build())
+				.say(new Say.Builder(answer + " You have " + numLeft + " questions left.").build())
 				.record(buildRecord())
 				.build()
 				.toXml();
@@ -120,7 +124,7 @@ public class PhoneSystem
 	{
 		return new Record.Builder()
 				.action("/process")
-			    .method(com.twilio.http.HttpMethod.POST)
+			    .method(HttpMethod.POST)
 			    .timeout(2)
 			    .maxLength(20)
 			    .playBeep(true)
@@ -130,7 +134,7 @@ public class PhoneSystem
 	// places recording in project directory so it can be used by Vosk model
 	private String downloadRecording(String recURL)
 	{
-		HttpURLConnection connection;
+		HttpURLConnection connection = null;
 		// set up HTTP connection with auccount SID and authentication token
 		try
 		{
@@ -143,6 +147,7 @@ public class PhoneSystem
 		catch(URISyntaxException | IOException e)
 		{
 			System.err.println("Could not obtain recording URL or a miscellaneous I/O error...");
+			e.printStackTrace();
 			return null;
 		}
 		

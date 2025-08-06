@@ -1,6 +1,6 @@
 package bot;
 
-enum OpenAI 
+public enum OpenAI 
 {
 	KEY(System.getenv("GPT_KEY")), EMBEDDING_MODEL("text-embedding-3-small"),
 	EMBEDDING_LINK("https://api.openai.com/v1/embeddings");
@@ -12,7 +12,7 @@ enum OpenAI
 		this.contents = contents;
 	}
 	
-	String get()
+	public String get()
 	{
 		return contents;
 	}

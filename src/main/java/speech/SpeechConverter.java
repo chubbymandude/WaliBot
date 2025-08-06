@@ -2,106 +2,50 @@ package speech;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.UnsupportedAudioFileException;
+import bot.OpenAI;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.vosk.*;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 // uses Vosk model to perform speech to text when the user's voice recording is obtained
 public class SpeechConverter
 {
-	private static Model MODEL;
-	
-	static
-	{
-		try
-		{
-			MODEL = new Model("src/main/resources/vosk-model-small-en-us-0.15");
-		}
-		catch(IOException e)
-		{
-			System.err.println("I/O exception while creating model...");
-		}
-	}
-	
-	// Speech-To-Text via Vosk for more effective and efficient processing
+	// uses Whisper to convert an audio file to text in the form of a String
 	public static String convertSpeechToText(String speech)
 	{
-		LibVosk.setLogLevel(LogLevel.DEBUG); 
+		// setup client and audio configurations
+		OkHttpClient client = new OkHttpClient();
+		MediaType type = MediaType.parse("audio/mpeg");
+		File audio = new File(speech);
 		
-		try(Recognizer recognizer = new Recognizer(MODEL, 16000))
-		{ 
-			InputStream inputStream = setStream(speech);
-			
-			if(inputStream == null)
-			{
-				return null;
-			}
-			
-			// write bytes from input stream into textual form
-			byte[] buffer = new byte[4096]; 
-			int numBytes;
-			StringBuilder text = new StringBuilder(); 
-			
-			while((numBytes = inputStream.read(buffer)) >= 0)
-			{
-				if(recognizer.acceptWaveForm(buffer, numBytes))
-				{
-					text.append(getTextFromJSON(recognizer.getResult())).append(" ");
-				}
-			}
-			
-			text.append(getTextFromJSON(recognizer.getFinalResult()));
-			
-			return text.toString().trim();
+		// make request body for Whisper API
+		RequestBody requestBody = new MultipartBody.Builder().setType(MultipartBody.FORM)
+			.addFormDataPart("file", audio.getName(), RequestBody.create(audio, type))
+			.addFormDataPart("model", "whisper-1")
+			.addFormDataPart("response_format", "text").build();
+		
+		// form POST request
+		Request request = new Request.Builder()
+		    .url("https://api.openai.com/v1/audio/transcriptions") 
+		    .post(requestBody)
+		    .addHeader("Authorization", "Bearer " + OpenAI.KEY.get())
+		    .build();
+		
+		// obtain the text converted from the audio file
+		try
+		{
+			Response response = client.newCall(request).execute();
+			return response.body().string();
 		}
 		catch(IOException e)
 		{
 			System.err.println("I/O exception converting speech to text...");
-			return null;
-		}
-	}
-	
-	// creates stream for specified speech file
-	private static AudioInputStream setStream(String speech) 
-	{
-		AudioInputStream audioInput;
-		
-		try
-		{
-			audioInput = AudioSystem.getAudioInputStream(new File(speech));
-			
-			AudioFormat format = new AudioFormat // format is set specifically for Vosk model
-			(AudioFormat.Encoding.PCM_SIGNED, 16000, 16, 1, 2, 16000, false);
-			
-			audioInput = AudioSystem.getAudioInputStream(format, audioInput);
-		}
-		catch(UnsupportedAudioFileException | IOException e)
-		{
-			System.err.println("Audio file is unsupported or miscellaneous I/O exception...");
-			return null;
-		}
-		
-		return audioInput;
-	}
-	
-	// JSON string value conversion to use for speech
-	private static String getTextFromJSON(String jsonText)
-	{
-		try
-		{
-			JSONObject jsonObject = new JSONObject(jsonText);
-			return jsonObject.getString("text");
-		}
-		catch(JSONException e)
-		{
-			System.err.println("Error converting JSON to text...");
+			e.printStackTrace();
 			return null;
 		}
 	}

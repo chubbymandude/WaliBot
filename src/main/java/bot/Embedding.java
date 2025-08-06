@@ -24,13 +24,11 @@ public class Embedding
         JSONArray array;
         
         // utilize a variety of utility methods to create a JSON array to convert 
-        try
-        {
-        	array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body)));
-        }
+        try { array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body))); }
         catch(IOException e)
         {
         	System.err.println("I/O exception obtaining embedding...");
+        	e.printStackTrace();
         	return null;
         }
         
@@ -92,5 +90,4 @@ public class Embedding
 		JSONObject body = new JSONObject(response.body().string());
 		return body.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
 	}
-	
 }

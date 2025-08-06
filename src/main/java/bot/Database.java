@@ -34,9 +34,8 @@ public class Database
 		    PreparedStatement botStatement = connection.prepareStatement(Queries.GET_ANSWER.get());
 		)
 		{
-			botStatement.setObject(1, embedding, java.sql.Types.OTHER);
+			botStatement.setObject(1, embedding, java.sql.Types.OTHER); // VECTOR
 			botStatement.setObject(2, embedding, java.sql.Types.OTHER);
-			//chatBotStatement.setObject(2, embedding, java.sql.Types.OTHER);
 			ResultSet resultSet = botStatement.executeQuery();
 
 			if(resultSet.next())
@@ -55,6 +54,6 @@ public class Database
 			e.printStackTrace();
 			return Speech.GET_FAIL.get(); 
 		}
-		return Speech.NO_DATA.get();
+		return Speech.NO_DATA.get(); // this won't run, just here to satisfy method return type
 	}
 }
