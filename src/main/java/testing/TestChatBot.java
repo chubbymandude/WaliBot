@@ -24,7 +24,7 @@ public class TestChatBot
 			System.out.println("Response...");
 			System.out.println(bot.getAnswerTo(input));
 		}
-		bot.clearHistory(); 
+		bot.close();
 		System.out.println("Program terminating...");
 		sc.close();
 	}

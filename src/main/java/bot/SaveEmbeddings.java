@@ -59,10 +59,6 @@ public class SaveEmbeddings
 			}
 			System.out.println("Embeddings have been saved...");
 		}
-		catch(SQLException e)
-		{
-			System.err.println("Error saving all embeddings...");
-			e.printStackTrace();
-		}
+		catch(SQLException e) { e.printStackTrace(); }
 	}
 }

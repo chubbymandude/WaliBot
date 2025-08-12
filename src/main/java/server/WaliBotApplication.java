@@ -11,7 +11,7 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan({"server", "phone"})
 public class WaliBotApplication 
 {
-	public static void main(String[] args) 
+	public static void main(String[] args)
 	{
 		SpringApplication.run(WaliBotApplication.class, args);
     }

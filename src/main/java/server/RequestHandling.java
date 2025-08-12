@@ -38,7 +38,7 @@ public class RequestHandling
 		}
 		catch(Exception e) // if the program is not working for any reason immediately hang up
 		{
-			phone.cleanup(request.getParameter("CallSid"));
+			e.printStackTrace();
 			return new VoiceResponse.Builder()
 				.say(new Say.Builder(Speech.ERROR.get()).build())
 				.hangup(new Hangup.Builder().build())

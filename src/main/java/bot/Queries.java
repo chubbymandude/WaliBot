@@ -24,7 +24,7 @@ public enum Queries
 		this.contents = contents;
 	}
 	
-	String get()
+	public String get()
 	{
 		return contents;
 	}

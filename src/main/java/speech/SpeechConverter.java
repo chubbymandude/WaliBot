@@ -42,11 +42,9 @@ public class SpeechConverter
 			Response response = client.newCall(request).execute();
 			return response.body().string();
 		}
-		catch(IOException e)
-		{
-			System.err.println("I/O exception converting speech to text...");
-			e.printStackTrace();
-			return null;
-		}
+		catch(IOException e) { e.printStackTrace(); }
+		
+		// if an exception occurred the ChatBot replies with a fail message
+		return Speech.GET_FAIL.get();
 	}
 }

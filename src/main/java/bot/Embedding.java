@@ -21,16 +21,14 @@ public class Embedding
 		JSONObject body = new JSONObject();
         body.put("input", prompt);
         body.put("model", OpenAI.EMBEDDING_MODEL.get());
-        JSONArray array;
+        JSONArray array = null;
         
         // utilize a variety of utility methods to create a JSON array to convert 
-        try { array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body))); }
-        catch(IOException e)
-        {
-        	System.err.println("I/O exception obtaining embedding...");
-        	e.printStackTrace();
-        	return null;
+        try 
+        { 
+        	array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body))); 
         }
+        catch(IOException e) { e.printStackTrace(); }
         
         List<Float> embeddingList = new ArrayList<>();
         
@@ -83,10 +81,6 @@ public class Embedding
 	
 	private static JSONArray buildArray(Response response) throws IOException
 	{
-		if(response == null)
-		{
-			return null;
-		}
 		JSONObject body = new JSONObject(response.body().string());
 		return body.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
 	}

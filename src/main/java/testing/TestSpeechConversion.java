@@ -15,5 +15,6 @@ public class TestSpeechConversion
 		ChatBot bot = new ChatBot();
 		String answer = bot.getAnswerTo(text);
 		System.out.println(answer);
+		bot.close();
 	}
 }

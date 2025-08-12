@@ -15,6 +15,7 @@ import com.twilio.http.HttpMethod;
 import com.twilio.twiml.VoiceResponse;
 import com.twilio.twiml.voice.Say;
 import com.twilio.twiml.voice.Hangup;
+import com.twilio.twiml.voice.Pause;
 import com.twilio.twiml.voice.Record;
 
 import speech.*;
@@ -50,6 +51,13 @@ public class PhoneSystem
 	// should run before user sends first prompt
 	public String startupMessage(HttpServletRequest request, HttpServletResponse response)
 	{
+		// use a thread to perform some work that can be done while the startup message plays
+		Thread thread = new Thread(() ->
+		{
+			conversations.put(request.getParameter("CallSid"), new Conversation());
+		});
+		thread.start();
+		// send the startup message
 		response.setContentType("application/xml");
 		return new VoiceResponse.Builder()
 			.say(new Say.Builder(Speech.STARTUP.get()).build())
@@ -58,32 +66,23 @@ public class PhoneSystem
 			.toXml();
 	}
 	
+	// runs after each prompt is made
 	public String messageLoop(HttpServletRequest request, HttpServletResponse response)
 	{
-		// setup ChatBot during first conversation
 		String sid = request.getParameter("CallSid");
-		conversations.putIfAbsent(sid, new Conversation());
-		
 		// obtain recording from twilio API
 		response.setContentType("application/xml");
-		String recUrl = request.getParameter("RecordingUrl");
-		String recDuration = request.getParameter("RecordingDuration");
-		
-		// if the user hanged up the application should still clean up resources
-		if(hangedUp(recUrl, recDuration))
-		{
-			cleanup(sid);
-			return new VoiceResponse.Builder()	
-				.say(new Say.Builder(Speech.END.get()).build())
-				.hangup(new Hangup.Builder().build())
-				.build()
-				.toXml();
-		} 
+		String recURL = request.getParameter("RecordingUrl");
 		
 		// algorithm for getting voice response and obtaining a relevant answer out of it
-		String recording = downloadRecording(recUrl); 
+		String recording = downloadRecording(recURL, sid); 
 		String prompt = SpeechConverter.convertSpeechToText(recording);
-		String answer = conversations.get(sid).bot.getAnswerTo(prompt);
+		Conversation currentConversation = conversations.get(sid);
+		String answer = currentConversation.bot.getAnswerTo(prompt);
+		
+		// delete the file of the user's recording after usage
+		File file = new File(recURL + ".wav");
+		file.delete();
 		
 		// if ChatBot wasn't able to get a response it doesn't count toward the # of answers
 		if(answer != Speech.NO_DATA.get()) 
@@ -91,48 +90,42 @@ public class PhoneSystem
 			conversations.get(sid).numAnswers++;
 		}
 		// determine if answer limit has been exceeded and build voice response accordingly
-		if(conversations.get(sid).numAnswers >= MAX_ANSWERS)
+		if(currentConversation.numAnswers >= MAX_ANSWERS)
 		{
-			cleanup(sid);
+			currentConversation.bot.close();
+			conversations.remove(sid);
 			return new VoiceResponse.Builder()	
-				.say(new Say.Builder(answer + Speech.END.get()).build())
+				.say(new Say.Builder(answer).build())        
+				.pause(new Pause.Builder().length(1).build()) 
+				.say(new Say.Builder(Speech.END.get()).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();
 		}
 		else
 		{
-			// indicate to the user how many valid questions they can get answered
-			int numLeft = MAX_ANSWERS - conversations.get(sid).numAnswers;
-			// include both the answer and the indication of # of messages left in voice response
 			return new VoiceResponse.Builder()	
-				.say(new Say.Builder(answer + " You have " + numLeft + " questions left.").build())
+				.say(new Say.Builder(answer).build())
 				.record(buildRecord())
 				.build()
 				.toXml();
 		}
 	}
 	
-	// utility method for determing if the user prematurely exited the call
-	private boolean hangedUp(String recUrl, String recDur)
-	{
-		return recUrl == null || recUrl.isEmpty() || recDur == null || recDur.equals("0");
-	}
-	
 	// allows the ChatBot to be able to take in multiple prompts
 	private Record buildRecord()
 	{
 		return new Record.Builder()
-				.action("/process")
-			    .method(HttpMethod.POST)
-			    .timeout(2)
-			    .maxLength(20)
-			    .playBeep(true)
-			    .build();
+			.action("/process")
+		    .method(HttpMethod.POST)
+		    .timeout(2)
+		    .maxLength(20)
+		    .playBeep(true)
+		    .build();
 	}
 
 	// places recording in project directory so it can be used by Vosk model
-	private String downloadRecording(String recURL)
+	private String downloadRecording(String recURL, String sid)
 	{
 		HttpURLConnection connection = null;
 		// set up HTTP connection with auccount SID and authentication token
@@ -144,47 +137,28 @@ public class PhoneSystem
 	        connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
 	        connection.connect();
 		}
-		catch(URISyntaxException | IOException e)
-		{
-			System.err.println("Could not obtain recording URL or a miscellaneous I/O error...");
-			e.printStackTrace();
-			return null;
-		}
-		
+		catch(URISyntaxException | IOException e) { e.printStackTrace(); }
 		// create output file for recording in current directory so it can easily be obtained
-		File outputFile = new File("recordings", Phone.PATH.get());
-		outputFile.getParentFile().mkdirs();
-		
+		File outputFile = new File(sid);
 		// write the recording into the file so it can be converted to text later
 		try
-		(
+		{
+			// create new file for output
+			outputFile.createNewFile();
+			// create streams
 			InputStream input = connection.getInputStream();
 	        OutputStream output = new FileOutputStream(outputFile);
-		)
-		{
+	        // write into stream the recording
 			byte[] buffer = new byte[4096];
 			int numBytes;
 			while((numBytes = input.read(buffer)) != -1) 
 			{
                 output.write(buffer, 0, numBytes);
             }
+			output.close();
 		}
-		catch(IOException e)
-		{
-			System.err.println("I/O Exception creating streams...");
-			e.printStackTrace();
-			return null;
-		}
+		catch(IOException e) { e.printStackTrace(); }
+		// need to return path so it can be used for speech conversion
 		return outputFile.getAbsolutePath();
-	}
-
-	// cleanup actions for phone system
-	public void cleanup(String sid)
-	{
-		conversations.get(sid).bot.clearHistory();
-		conversations.remove(sid);
-		
-		File recording = new File(Phone.PATH.get());
-		recording.delete();
 	}
 }

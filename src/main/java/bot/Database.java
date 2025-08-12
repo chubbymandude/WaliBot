@@ -21,18 +21,10 @@ public class Database
     }
 	
 	// this method is specifically used by the ChatBot to obtain a relevant answer from database
-	static String queryDatabase(String prompt)
+	static String queryDatabase(String prompt, PreparedStatement botStatement)
 	{
 		String embedding = Embedding.getEmbedding(prompt);
-		if(embedding == null)
-		{
-			return Speech.GET_FAIL.get();
-		}
 		try
-		(
-			Connection connection = getConnection();
-		    PreparedStatement botStatement = connection.prepareStatement(Queries.GET_ANSWER.get());
-		)
 		{
 			botStatement.setObject(1, embedding, java.sql.Types.OTHER); // VECTOR
 			botStatement.setObject(2, embedding, java.sql.Types.OTHER);
@@ -48,12 +40,8 @@ public class Database
 				return resultSet.getString("answer");
 			}
 		}
-		catch(SQLException e)
-		{
-			System.err.println("Error obtaining from database...");
-			e.printStackTrace();
-			return Speech.GET_FAIL.get(); 
-		}
-		return Speech.NO_DATA.get(); // this won't run, just here to satisfy method return type
+		catch(SQLException e){ e.printStackTrace(); }
+		// if an exception occurred the ChatBot replies with a fail message
+		return Speech.GET_FAIL.get(); 
 	}
 }
