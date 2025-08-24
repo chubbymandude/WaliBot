@@ -1,4 +1,4 @@
-package stack;
+package bot;
 
 import java.util.ArrayList;
 
@@ -30,7 +30,7 @@ public class Stack<E>
 	{
 		if(size() == 0)
 		{
-			throw new IllegalStateException("Empty stack, cannot pop.");
+			throw new IllegalStateException("Empty stack, cannot peek.");
 		}
 		return stack.getLast();
 	}

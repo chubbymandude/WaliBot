@@ -1,9 +1,7 @@
-package speech;
+package application;
 
 import java.io.File;
 import java.io.IOException;
-
-import bot.OpenAI;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -12,9 +10,21 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-// uses Vosk model to perform speech to text when the user's voice recording is obtained
+// uses Whisper model to perform speech to text when the user's voice recording is obtained
 public class SpeechConverter
 {
+	// an exception that occurs when speech to text fails in the program
+	// this occurs when any error happens in the SpeechCoverter class
+	public static class SpeechToTextException extends RuntimeException
+	{
+		private static final long serialVersionUID = 1L;
+		
+		SpeechToTextException()
+		{
+			super("Sorry, I was not able to get your response. Please try again.");
+		}
+	}
+	
 	// uses Whisper to convert an audio file to text in the form of a String
 	public static String convertSpeechToText(String speech)
 	{
@@ -33,7 +43,7 @@ public class SpeechConverter
 		Request request = new Request.Builder()
 		    .url("https://api.openai.com/v1/audio/transcriptions") 
 		    .post(requestBody)
-		    .addHeader("Authorization", "Bearer " + OpenAI.KEY.get())
+		    .addHeader("Authorization", "Bearer " + System.getenv("GPT_KEY"))
 		    .build();
 		
 		// obtain the text converted from the audio file
@@ -42,9 +52,7 @@ public class SpeechConverter
 			Response response = client.newCall(request).execute();
 			return response.body().string();
 		}
-		catch(IOException e) { e.printStackTrace(); }
-		
-		// if an exception occurred the ChatBot replies with a fail message
-		return Speech.GET_FAIL.get();
+		catch(IOException e) { throw new SpeechToTextException(); }
+		finally { audio.delete(); } // delete the file even if conversion was not successful
 	}
 }

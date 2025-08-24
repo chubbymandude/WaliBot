@@ -1,4 +1,4 @@
-package server;
+package application;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -7,18 +7,18 @@ import com.twilio.twiml.VoiceResponse;
 import com.twilio.twiml.voice.Hangup;
 import com.twilio.twiml.voice.Say;
 
+import application.PhoneSystem.PhoneException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import speech.Speech;
 
 // class that has various methods for handling get / post requests
 @RestController
-public class RequestHandling 
+public class PhoneController 
 {
 	private PhoneSystem phone;
 	
 	@Autowired
-	public RequestHandling(PhoneSystem phone)
+	public PhoneController(PhoneSystem phone)
 	{	
 		this.phone = phone;
 	}
@@ -29,18 +29,18 @@ public class RequestHandling
 		return phone.startupMessage(request, response);
 	}
 	
-	@RequestMapping(value = "/process", method = RequestMethod.POST)
+	@PostMapping("/process")
 	public String handleLoop(HttpServletRequest request, HttpServletResponse response)
 	{
 		try
 		{
 			return phone.messageLoop(request, response);
 		}
-		catch(Exception e) // if the program is not working for any reason immediately hang up
+		catch(PhoneException e) // if the program is not working for any reason immediately hang up
 		{
 			e.printStackTrace();
 			return new VoiceResponse.Builder()
-				.say(new Say.Builder(Speech.ERROR.get()).build())
+				.say(new Say.Builder(e.getMessage()).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();

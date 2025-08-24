@@ -5,6 +5,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -15,73 +19,89 @@ import java.util.ArrayList;
  */
 public class Embedding 
 {
+	// queries used when saving embeddings (not relied on in application)
+	private static final String SAVE_EMBEDDING = 
+		"INSERT INTO dataset (question, embedding)\n" +
+		"VALUES (?, ?)\n" +
+		"ON CONFLICT (question) DO UPDATE\n" +
+		"SET embedding = EXCLUDED.embedding";
+	private static final String GET_PROMPT = 
+		"SELECT question\n" +
+		"FROM dataset\n" +
+		"WHERE id = ?";
+	private static final String GET_NUM_ROWS = "SELECT COUNT(1) FROM dataset";
+	
 	// gets embedding for use in query
-	static String getEmbedding(String prompt)
+	public static String getEmbedding(String prompt) throws IOException
 	{
 		JSONObject body = new JSONObject();
         body.put("input", prompt);
-        body.put("model", OpenAI.EMBEDDING_MODEL.get());
-        JSONArray array = null;
+        body.put("model", "text-embedding-3-small");
         
-        // utilize a variety of utility methods to create a JSON array to convert 
-        try 
-        { 
-        	array = buildArray(buildResponse(new OkHttpClient(), buildRequest(body))); 
-        }
-        catch(IOException e) { e.printStackTrace(); }
-        
-        List<Float> embeddingList = new ArrayList<>();
-        
-        for(int index = 0; index < array.length(); index++) 
-        {
-            embeddingList.add(array.getFloat(index));
-        }
-        
-		return convertEmbeddingToString(embeddingList);
-	}
-	
-	// converts embedding to String format for use in query
-	private static String convertEmbeddingToString(List<Float> embeddingList)
-	{
-		StringBuilder data = new StringBuilder("[");
-		for(int index = 0; index < embeddingList.size(); index++)
-		{
-			data.append(embeddingList.get(index));
-			if(index != embeddingList.size() - 1)
-			{
-				data.append(", ");
-			}
-		}
-		return data.toString() + "]";
-	}
-	
-	///////////////////////////////////////////////////////////////////////////
-	// following set of methods are utility methods for creating JSON array //
-	/////////////////////////////////////////////////////////////////////////
-	
-	private static RequestBody getRequestBody(JSONObject body)
-	{
-		return RequestBody.create(body.toString(), MediaType.parse("application/json"));
-	}
-	
-	private static Request buildRequest(JSONObject body)
-	{
-		return new Request.Builder()
-			.url(OpenAI.EMBEDDING_LINK.get())
-			.addHeader("Authorization", "Bearer " + OpenAI.KEY.get())
+        // build the request to OpenAI for obtaining embedding vector for prompt
+        Request request = new Request.Builder()
+			.url("https://api.openai.com/v1/embeddings")
+			.addHeader("Authorization", "Bearer " + System.getenv("GPT_KEY"))		
 			.addHeader("Content-Type", "application/json")
-			.post(getRequestBody(body))
+			.post(RequestBody.create(body.toString(), MediaType.parse("application/json")))
 			.build();
+        Response response = new OkHttpClient().newCall(request).execute();
+        JSONObject object = new JSONObject(response.body().string());
+        JSONArray array = object.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
+        
+        // convert to Java List type so it can be converted easily to a String for database use
+        List<Float> embeddingList = new ArrayList<>();
+        for(int index = 0; index < array.length(); index++) 
+        { 
+        	Float currValue = array.getFloat(index);
+        	embeddingList.add(currValue); 
+        }
+        return embeddingList.toString();
 	}
 	
-	private static Response buildResponse(OkHttpClient client, Request request) throws IOException
+	// saves the embedding for the specified prompt to the database 
+	private static void saveEmbedding(String prompt) throws SQLException, IOException
 	{
-		return client.newCall(request).execute();
+		Connection connection = Database.getConnection();
+		PreparedStatement statement = connection.prepareStatement(SAVE_EMBEDDING);
+		statement.setString(1, prompt);
+		statement.setObject(2, getEmbedding(prompt), java.sql.Types.OTHER);
+		statement.executeUpdate();
 	}
 	
-	private static JSONArray buildArray(Response response) throws IOException
+	// need to obtain # of rows for indexing
+	private static int numRows() throws SQLException
 	{
-		JSONObject body = new JSONObject(response.body().string());
-		return body.getJSONArray("data").getJSONObject(0).getJSONArray("embedding");
+		Connection connection = Database.getConnection();
+		PreparedStatement statement = connection.prepareStatement(GET_NUM_ROWS);
+		ResultSet resultSet = statement.executeQuery();
+		resultSet.next();
+		return resultSet.getInt("count");
+	}
+	
+	// get prompt associated with an ID 
+	private static String getPrompt(int id) throws SQLException
+	{
+		Connection connection = Database.getConnection();
+		PreparedStatement statement = connection.prepareStatement(GET_PROMPT);
+		statement.setInt(1, id);
+		ResultSet resultSet = statement.executeQuery();
+		resultSet.next();
+		return resultSet.getString("question");
+	}
+	
+	// utilize this method to update the embeddings when updating database
+	public static void main(String[] args)
+	{
+		try
+		{
+			int numCols = numRows();
+			for(int row = 1; row <= numCols; row++) 
+			{ 
+				saveEmbedding(getPrompt(row)); 
+			}
+			System.out.println("Embeddings have been saved...");
+		}
+		catch(SQLException | IOException e) { e.printStackTrace(); }
 	}
 }

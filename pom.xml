@@ -42,12 +42,6 @@
 		</dependency>
 		
 		<dependency>
-  			<groupId>com.alphacephei</groupId>
-  			<artifactId>vosk</artifactId>
-  			<version>0.3.38</version>
-		</dependency>
-		
-		<dependency>
     		<groupId>org.json</groupId>
     		<artifactId>json</artifactId>
     		<version>20250517</version>
@@ -57,11 +51,6 @@
       		<groupId>com.twilio.sdk</groupId>
       		<artifactId>twilio</artifactId>
       		<version>8.31.1</version>
-    	</dependency>
-
-    	<dependency>
-      		<groupId>com.google.code.gson</groupId>
-      		<artifactId>gson</artifactId>
     	</dependency>
     	
     	<dependency>
@@ -74,8 +63,13 @@
   			<artifactId>okhttp</artifactId>
   			<version>4.10.0</version>
 		</dependency>
+		
+		<dependency>
+		    <groupId>org.python</groupId>
+		    <artifactId>jython-slim</artifactId>
+		    <version>2.7.4</version>
+		</dependency>
 	</dependencies>
-
 	<build>
 		<plugins>
 			<plugin>
@@ -84,5 +78,4 @@
 			</plugin>
 		</plugins>
 	</build>
-
 </project>

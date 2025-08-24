@@ -1,4 +1,4 @@
-package server;
+package application;
 
 import java.io.*;
 import java.net.URI;
@@ -18,13 +18,34 @@ import com.twilio.twiml.voice.Hangup;
 import com.twilio.twiml.voice.Pause;
 import com.twilio.twiml.voice.Record;
 
-import speech.*;
-import bot.*;
+import bot.ChatBot;
+import bot.Database.NoDataException;
 
 // utility functions for serving the phone line
 @Service
 public class PhoneSystem
 {
+	// exception that is thrown when there is a problem with the phone line
+	// this is thrown in any I/O error and any other exception type that occurs during the call
+	public static class PhoneException extends RuntimeException
+	{
+		private static final long serialVersionUID = 1L;
+		
+		public PhoneException()
+		{
+			super("Sorry, I cannot answer any questions at the moment. Allah-hafiz.");
+		}
+	}
+
+	/*
+	private static final String STARTUP = 
+		"Assalammualaikum! Welcome to the Masjid Al-Wali Chat Service. " +
+		"Ask any question related to the Masjid here!" +
+		"You are allowed at most 5 questions per call.";
+	*/
+	private static final String STARTUP = "hello";
+	private static final String END = 
+		"Thank you for using the Masjid Al-Wali Chat Service. Allah-hafiz.";
 	private static final int MAX_ANSWERS = 5;
 	
 	// holds a ChatBot instance to handle multiple incoming calls
@@ -60,7 +81,7 @@ public class PhoneSystem
 		// send the startup message
 		response.setContentType("application/xml");
 		return new VoiceResponse.Builder()
-			.say(new Say.Builder(Speech.STARTUP.get()).build())
+			.say(new Say.Builder(STARTUP).build())
 			.record(buildRecord())
 			.build()
 			.toXml();
@@ -69,8 +90,8 @@ public class PhoneSystem
 	// runs after each prompt is made
 	public String messageLoop(HttpServletRequest request, HttpServletResponse response)
 	{
+		// obtain recordingst from twilio API
 		String sid = request.getParameter("CallSid");
-		// obtain recording from twilio API
 		response.setContentType("application/xml");
 		String recURL = request.getParameter("RecordingUrl");
 		
@@ -79,16 +100,8 @@ public class PhoneSystem
 		String prompt = SpeechConverter.convertSpeechToText(recording);
 		Conversation currentConversation = conversations.get(sid);
 		String answer = currentConversation.bot.getAnswerTo(prompt);
+		conversations.get(sid).numAnswers += (answer == NoDataException.MESSAGE) ? 0 : 1;
 		
-		// delete the file of the user's recording after usage
-		File file = new File(recURL + ".wav");
-		file.delete();
-		
-		// if ChatBot wasn't able to get a response it doesn't count toward the # of answers
-		if(answer != Speech.NO_DATA.get()) 
-		{
-			conversations.get(sid).numAnswers++;
-		}
 		// determine if answer limit has been exceeded and build voice response accordingly
 		if(currentConversation.numAnswers >= MAX_ANSWERS)
 		{
@@ -97,7 +110,7 @@ public class PhoneSystem
 			return new VoiceResponse.Builder()	
 				.say(new Say.Builder(answer).build())        
 				.pause(new Pause.Builder().length(1).build()) 
-				.say(new Say.Builder(Speech.END.get()).build())
+				.say(new Say.Builder(END).build())
 				.hangup(new Hangup.Builder().build())
 				.build()
 				.toXml();
@@ -127,26 +140,19 @@ public class PhoneSystem
 	// places recording in project directory so it can be used by Vosk model
 	private String downloadRecording(String recURL, String sid)
 	{
-		HttpURLConnection connection = null;
-		// set up HTTP connection with auccount SID and authentication token
 		try
 		{
-			connection = (HttpURLConnection) new URI(recURL).toURL().openConnection();
-	        String auth = Phone.ACCOUNT_SID.get() + ":" + Phone.AUTH_TOKEN.get();
+			// set up HTTP connection with auccount SID and authentication token
+			HttpURLConnection conn = (HttpURLConnection) new URI(recURL).toURL().openConnection();
+	        String auth = System.getenv("ACCOUNT_SID") + ":" + System.getenv("AUTH_TOKEN");
 	        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-	        connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
-	        connection.connect();
-		}
-		catch(URISyntaxException | IOException e) { e.printStackTrace(); }
-		// create output file for recording in current directory so it can easily be obtained
-		File outputFile = new File(sid);
-		// write the recording into the file so it can be converted to text later
-		try
-		{
-			// create new file for output
-			outputFile.createNewFile();
+	        conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+	        conn.connect();
+	        // create file for output
+	        File outputFile = new File(sid);
+	        outputFile.createNewFile();
 			// create streams
-			InputStream input = connection.getInputStream();
+			InputStream input = conn.getInputStream();
 	        OutputStream output = new FileOutputStream(outputFile);
 	        // write into stream the recording
 			byte[] buffer = new byte[4096];
@@ -155,10 +161,10 @@ public class PhoneSystem
 			{
                 output.write(buffer, 0, numBytes);
             }
+			input.close();
 			output.close();
+			return outputFile.getAbsolutePath();
 		}
-		catch(IOException e) { e.printStackTrace(); }
-		// need to return path so it can be used for speech conversion
-		return outputFile.getAbsolutePath();
+		catch(URISyntaxException | IOException e) { throw new PhoneException(); }
 	}
 }
